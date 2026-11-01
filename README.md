@@ -1,124 +1,83 @@
-# Barra Bot
+# barra-bot
 
-Um bot pra minigame de **equilíbrio**: tem uma barra vertical, um **retângulo** que sobe e desce
-sozinho (às vezes rápido, às vezes devagar) e um **quadradinho branco**. Se você **segura o mouse**,
-o quadrado sobe; se **solta**, ele cai. O objetivo é manter o quadrado dentro do retângulo até o tempo acabar.
+Bot pro minigame de pescaria em que você segura o botão do mouse pra subir um quadradinho branco e tenta manter ele dentro de um retângulo que fica andando pela barra. Segurar e soltar por minutos cansa, e eu errava bastante, então escrevi isso.
 
-O Barra Bot faz isso por você: ele olha a barra na tela, descobre onde estão o quadrado e o retângulo
-e decide a cada instante se **segura** ou **solta** o botão do mouse.
-
-Ele não lê memória do jogo. É só **visão (pixels da tela) + um controlador simples**.
+Ele só olha a tela e aperta o mouse. Não lê memória do jogo nem injeta nada.
 
 ## Como funciona
 
-**1. Ver a barra.** Uma thread própria captura a região da barra (com [`mss`](https://github.com/BoboTiG/python-mss))
-umas dezenas de vezes por segundo:
+Uma thread captura a região da barra com [mss](https://github.com/BoboTiG/python-mss), umas dezenas de vezes por segundo, e acha duas coisas:
 
-- o **retângulo** é achado pela **borda colorida**. A cor dela vai de amarelo a verde (e fica mais escura ou clara) conforme o quadrado se aproxima, então o que vale é a *estrutura*: duas linhas largas (topo e base) ou as duas laterais, com cerca de 10% da altura da barra, centradas nela;
-- o **quadrado** é o que há de mais claro dentro da barra (branco, ou verde-claro quando está dentro do retângulo);
-- coisas que parecem cenário (manchas cheias, verde escuro, fora do centro) são descartadas.
+- o retângulo, pela borda colorida. A cor muda de amarelo pra verde (e escurece de noite) conforme o quadrado chega perto, então não dá pra procurar uma cor fixa. Eu procuro a forma: duas linhas largas (topo e base) ou as duas laterais, com mais ou menos 10% da altura da barra, no centro dela.
+- o quadrado, que é a coisa mais clara dentro da barra.
 
-**2. Decidir.** O quadrado tem *inércia*: sobe acelerando enquanto você segura e cai acelerando quando solta
-(medi uns ±500 px/s² num vídeo do jogo). Reagir só à posição atual faz ele passar do ponto, então o controlador
-olha pra frente:
+Teve falso positivo com cenário (minimapa, vitória-régia), então descarto mancha muito cheia, verde escuro e o que estiver fora do centro.
+
+Pra decidir, só a posição não adianta. O quadrado tem inércia: sobe acelerando enquanto você segura e cai acelerando quando solta, uns 500 px/s² pelo que medi num vídeo. Se o bot reage só ao que vê agora, passa do ponto. Então ele olha um pouco pra frente:
 
 ```
-erro = (posição do quadrado − alvo no retângulo) + (velocidade relativa) × antecipação
+erro = (posição do quadrado - alvo no retângulo) + velocidade relativa * antecipação
 segura o botão se erro > zona morta
 ```
 
-A velocidade vem de um ajuste de reta nos últimos ~70 ms de leitura. Tem histerese pra não ficar
-apertando e soltando o tempo todo. O **retângulo é tratado como imprevisível** (muda de velocidade ao acaso),
-então o bot não tenta prever o movimento dele.
+A velocidade sai de uma reta ajustada nas últimas leituras (~70 ms). Tem histerese pra ele não ficar apertando e soltando sem parar. O retângulo muda de velocidade do nada, então não tento prever o movimento dele.
 
-**3. Nunca travar o botão.** Se segurar por mais de 1,4 s, ou por mais de 0,5 s com o quadrado parado
-(sinal de que o jogo não está respondendo), ele solta à força e avisa na tela.
+Pra ele não ficar com o botão preso: se segurar mais de 1,4 s, ou mais de 0,5 s com o quadrado parado, solta à força e avisa na janela.
 
-## Requisitos
+## Instalando
 
-- Windows 10 ou 11
-- Python 3.10 ou mais novo
-- Rodar **como administrador**
-- O jogo em **janela ou tela cheia sem bordas**
+Precisa de Windows 10 ou 11, Python 3.10+ e rodar como administrador (senão o jogo ignora o clique).
 
-## Rodando
-
-```bash
+```
 git clone https://github.com/Goiabatriste06/barra-bot.git
 cd barra-bot
 python -m pip install -r requirements.txt
 python barra_bot.py
 ```
 
-Ou abra o **`iniciar.bat`** com *botão direito → Executar como administrador*.
+Se preferir, abre o `iniciar.bat` com botão direito > Executar como administrador. Ele instala as dependências e abre o app. Se o `python` não for reconhecido, troca por `py`.
 
-> Se o `python` não for reconhecido, tente `py`.
+O jogo tem que estar em janela ou tela cheia sem bordas.
 
-## Configurando (só na primeira vez)
+## Primeiro uso
 
-1. Com a barra na tela, abra **⚙ Ajustes**.
-2. Leve o mouse ao **meio do topo** da barra e aperte `F7`.
-3. Leve o mouse ao **meio da base** e aperte `F8`. A janela mostra a altura marcada e um contorno azul na tela.
-4. Marque **Modo teste** e confira o radar da janela: ele deve desenhar o retângulo e o quadrado acompanhando o jogo, sem clicar nada.
-5. Desmarque o modo teste.
+1. Com a barra na tela, abre os Ajustes.
+2. Leva o mouse no meio do topo da barra e aperta F7.
+3. Leva o mouse no meio da base e aperta F8. Vai aparecer um contorno azul na tela mostrando a região lida.
+4. Liga o modo teste e olha o radar na janela. Ele tem que desenhar o retângulo e o quadrado acompanhando o jogo, sem clicar em nada. Quando estiver certo, desliga o modo teste.
 
 A marcação fica salva em `config_barra_bot.json` quando você fecha o app.
 
-## Jogando
+Pra jogar: F6 liga, F6 desliga. O app sempre abre desligado. Ligado, ele espera a barra aparecer, controla sozinho e solta o botão quando a barra some. Usa o F6 em vez de clicar no botão da janela, porque clicar nela tira o foco do jogo.
 
-1. Aperte **`F6`** pra ligar. O app sempre abre desligado.
-2. Ele espera a barra aparecer e controla sozinho. Quando a barra some, solta o botão.
-3. `F6` de novo pra desligar.
-
-| Atalho | O que faz |
-|--------|-----------|
-| `F6` | liga / desliga |
-| `F7` | marca o topo da barra |
-| `F8` | marca a base da barra |
-
-Dica: use o `F6` em vez de clicar no botão da janela. Clicar na janela do bot tira o foco do jogo.
+Atalhos: F6 liga/desliga, F7 marca o topo, F8 marca a base.
 
 ## Ajustes
 
-| Opção | Pra que serve |
-|-------|---------------|
-| **Antecipação (ms)** | o quanto ele "olha pra frente". Padrão 300. Quadrado oscilando demais? Diminua (~250). Demora a corrigir e passa direto? Aumente (350 a 450). |
-| **Botão do mouse** | esquerdo (padrão) ou direito. |
-| **Modo teste** | só observa, não clica. Bom pra conferir a detecção. |
-| **Salvar foto do que o bot vê** | grava um `diagnostico.png` com a imagem exata da região lida. Ótimo pra investigar quando ele não acha a barra. |
+- Antecipação (ms): quanto ele olha pra frente. Padrão 300. Se o quadrado fica balançando demais, tenta uns 250. Se demora pra corrigir e passa direto, sobe pra 350 ou 450. É o ajuste que mais muda o resultado.
+- Botão do mouse: esquerdo por padrão.
+- Modo teste: só observa, não clica.
+- Salvar foto do que o bot vê: grava um `diagnostico.png` com a imagem exata que ele está lendo. Ajuda quando ele não acha a barra.
 
-Zona morta e alvo dentro do retângulo ficam no `config_barra_bot.json` (`zona_morta` e `alvo_pct`) se quiser mexer.
+Zona morta e alvo dentro do retângulo estão no `config_barra_bot.json` (`zona_morta` e `alvo_pct`) se você quiser mexer.
 
-## Problemas comuns
+## Se não funcionar
 
-| Sintoma | O que fazer |
-|---------|-------------|
-| "Vejo só uma parte da barra" | confira o contorno azul: ele precisa cobrir a barra inteira (e a largura, o retângulo todo). Se persistir, salve a foto de diagnóstico. |
-| "Quadrado não responde" | o jogo não está recebendo o clique. Clique na janela do jogo pra dar foco e rode como administrador. |
-| Passa do retângulo toda hora | ajuste a **Antecipação**. |
-| Poucas leituras por segundo | feche programas pesados. Abaixo de ~60 leituras/s o controle piora. |
+- "Vejo só uma parte da barra": o contorno azul precisa cobrir a barra inteira. Se continuar assim, salva a foto de diagnóstico e olha o que ele enxerga.
+- "Quadrado não responde": o jogo não está recebendo o clique. Clica na janela do jogo pra dar foco e confere se está como administrador.
+- Passa do retângulo toda hora: mexe na antecipação.
+- Poucas leituras por segundo: fecha programa pesado. Abaixo de uns 60 por segundo o controle piora.
 
-## Estrutura
+## Arquivos
 
-```
-barra-bot/
-├── barra_bot.py       # detecção + controlador + interface (Tkinter) num arquivo só
-├── iniciar.bat        # atalho pra Windows
-├── requirements.txt
-└── .gitignore
-```
+- `barra_bot.py`: tudo num arquivo só. `detectar()` e `achar_retangulo()` fazem a visão, `Controlador` decide segurar ou soltar, `App` cuida da interface (Tkinter), da thread de captura e do mouse.
+- `iniciar.bat`: atalho pra Windows.
+- `requirements.txt`
 
-Dentro do `barra_bot.py`: `detectar()` e `achar_retangulo()` (visão), `Controlador` (decide segurar/soltar)
-e `App` (interface, thread de captura e mouse).
+## O que eu sei que está fraco
 
-## Limitações honestas
-
-- Eu calibrei com um vídeo e prints de um jogo específico (1080p). Outro tema visual, resolução muito diferente ou um
-  retângulo de outra cor podem exigir ajustes na detecção.
-- O controle foi validado numa simulação com a física que medi. No jogo real, a **Antecipação** é o botão que mais muda o resultado.
-- Se o jogo mudar o visual da barra, a detecção pode parar de achar o retângulo.
+Calibrei com um vídeo e alguns prints de um jogo só, em 1080p. Se o seu tiver outro tema, outra resolução ou um retângulo de outra cor, a detecção pode precisar de ajuste. O controle eu testei numa simulação com a física que medi, e no jogo de verdade o que sobra pra acertar é a antecipação. Se o jogo mudar o visual da barra, a detecção provavelmente quebra.
 
 ## Aviso
 
-Isso automatiza input em jogos. Muitos jogos (Roblox incluso) têm regras contra automação e podem punir a conta.
-**Use por sua conta e risco** e, de preferência, em conta que você não se importe de perder.
+Isso automatiza input em jogo, e muitos jogos (Roblox incluso) proíbem. Dá pra tomar ban. Use numa conta que você não se importe de perder.
